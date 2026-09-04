@@ -17,14 +17,15 @@ import sys
 import logging
 import argparse
 from datetime import datetime
+from pathlib import Path
 
 import requests
 from dotenv import load_dotenv
 from apscheduler.schedulers.blocking import BlockingScheduler
 
-from notifications import send_sms, send_whatsapp, send_email
+load_dotenv(Path(__file__).with_name(".env"))
 
-load_dotenv()
+from notifications import send_sms, send_whatsapp, send_email
 
 logging.basicConfig(
     level=logging.INFO,
@@ -162,6 +163,12 @@ def process_maintenance_due():
         except requests.RequestException as exc:
             logger.error(f"Failed to log maintenance notification: {exc}")
 
+        try:
+            api_patch(f"/maintenance/{record['_id']}/mark-reminder-sent")
+            logger.info(f"Maintenance reminder sent + marked for {record['_id']} ({machine_name})")
+        except requests.RequestException as exc:
+            logger.error(f"Failed to mark maintenance reminder sent for {record.get('_id')}: {exc}")
+
 
 def run_daily_checks():
     logger.info(f"=== Daily check started at {datetime.now().isoformat()} ===")
@@ -204,11 +211,6 @@ def main():
         logger.info("Scheduler stopped by user")
     finally:
         scheduler.shutdown(wait=False)
-
-    try:
-        scheduler.start()
-    except (KeyboardInterrupt, SystemExit):
-        logger.info("Scheduler stopped.")
 
 
 if __name__ == "__main__":
